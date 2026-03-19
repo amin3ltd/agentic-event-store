@@ -18,6 +18,8 @@ __all__ = [
     "BaseEvent",
     "EVENT_REGISTRY",
     "schema",
+    "upcasting",
+    "integrity",
 ]
 
 __version__ = "1.0.0"
