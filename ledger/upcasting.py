@@ -124,7 +124,7 @@ def upcast_credit_v1_to_v2(payload: dict[str, Any]) -> dict[str, Any]:
     Inference Strategy:
     - model_version: Use "legacy-pre-2026" as marker for pre-2026 events
     - confidence_score: None - fabricating would be worse than null for compliance
-    - regulatory_basis: Inferred from date (pre-regulation events)
+    - regulatory_basis: Explicit marker for historical events without regulatory basis
     """
     import re
     
@@ -153,7 +153,8 @@ def upcast_credit_v1_to_v2(payload: dict[str, Any]) -> dict[str, Any]:
     
     # Infer regulatory_basis from date
     # Pre-2026 events don't have regulatory tracking
-    payload["regulatory_basis"] = "pre-2026-migration"
+    # Use explicit marker to indicate this is an inferred value, not actual regulatory basis
+    payload["regulatory_basis"] = "historical-event-no-regulatory-basis"
     
     return payload
 

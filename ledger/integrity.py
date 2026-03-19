@@ -8,8 +8,8 @@ Each event's hash includes the previous event's hash, creating an immutable chai
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any, Optional
+from datetime import datetime, timezone
+from typing import Any
 
 
 @dataclass
@@ -44,7 +44,7 @@ class AuditChain:
             Hex-encoded SHA-256 hash
         """
         if timestamp is None:
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(timezone.utc)
         
         # Canonicalize payload (deterministic JSON)
         canonical_payload = json.dumps(payload, sort_keys=True, default=str)
@@ -112,7 +112,7 @@ class AuditChain:
             "first_event_hash": stream_events[0].get("metadata", {}).get("integrity_hash", "") if stream_events else None,
             "last_event_hash": stream_events[-1].get("metadata", {}).get("integrity_hash", "") if stream_events else None,
             "errors": errors,
-            "verified_at": datetime.utcnow().isoformat()
+            "verified_at": datetime.now(timezone.utc).isoformat()
         }
 
 
@@ -147,10 +147,10 @@ class RegulatoryPackage:
         verification = AuditChain.verify_stream_integrity(events)
         
         package = {
-            "package_id": f"REG-{application_id}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            "package_id": f"REG-{application_id}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
             "application_id": application_id,
             "regulator": regulator_name,
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "events_count": len(events),
             "integrity_verification": verification,
             "events": events,
