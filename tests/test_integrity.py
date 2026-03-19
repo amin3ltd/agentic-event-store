@@ -261,7 +261,7 @@ class TestRegulatoryPackage:
         
         assert "as_of_timestamp" in package
         assert "note" in package
-        assert "temporal" in package["note"].lower()
+        assert "as of" in package["note"].lower()
     
     def test_package_id_format(self):
         """Test that package ID follows expected format."""

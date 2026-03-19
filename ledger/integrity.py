@@ -9,7 +9,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Union
 
 
 @dataclass
@@ -30,7 +30,7 @@ class AuditChain:
     def compute_event_hash(
         payload: dict[str, Any],
         previous_hash: str,
-        timestamp: datetime | None = None
+        timestamp: Union[datetime, str, None] = None
     ) -> str:
         """
         Compute SHA-256 hash for an event.
@@ -38,13 +38,16 @@ class AuditChain:
         Args:
             payload: Event payload
             previous_hash: Hash of previous event in chain
-            timestamp: Optional timestamp (defaults to now)
+            timestamp: Optional timestamp (defaults to now). Can be datetime or ISO string.
             
         Returns:
             Hex-encoded SHA-256 hash
         """
         if timestamp is None:
             timestamp = datetime.now(timezone.utc)
+        elif isinstance(timestamp, str):
+            # Parse ISO format string
+            timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
         
         # Canonicalize payload (deterministic JSON)
         canonical_payload = json.dumps(payload, sort_keys=True, default=str)
@@ -176,10 +179,22 @@ class RegulatoryPackage:
         This simulates what the system looked like at a historical moment,
         useful for regulatory examinations of past decisions.
         """
+        # Normalize as_of_timestamp to datetime
+        if isinstance(as_of_timestamp, str):
+            as_of_timestamp = datetime.fromisoformat(as_of_timestamp.replace('Z', '+00:00'))
+        
         # Filter events to only those that existed at the timestamp
+        def get_event_time(event):
+            recorded = event.get("recorded_at")
+            if recorded is None:
+                return datetime.min
+            if isinstance(recorded, str):
+                return datetime.fromisoformat(recorded.replace('Z', '+00:00'))
+            return recorded
+        
         historical_events = [
             e for e in events 
-            if e.get("recorded_at", datetime.min) <= as_of_timestamp
+            if get_event_time(e) <= as_of_timestamp
         ]
         
         package = RegulatoryPackage.generate_package(
