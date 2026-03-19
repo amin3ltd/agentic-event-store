@@ -1,0 +1,40 @@
+# Agentic Event Store Configuration
+# The Ledger - Production Configuration
+
+database:
+  # PostgreSQL connection settings
+  host: ${DB_HOST:-localhost}
+  port: ${DB_PORT:-5432}
+  name: ${DB_NAME:-apex_ledger}
+  user: ${DB_USER:-postgres}
+  password: ${DB_PASSWORD:-postgres}
+  pool:
+    min_size: ${DB_POOL_MIN:-2}
+    max_size: ${DB_POOL_MAX:-10}
+    connection_timeout: ${DB_CONNECTION_TIMEOUT:-30}
+
+event_store:
+  # Event store specific settings
+  snapshot_interval: ${EVENT_STORE_SNAPSHOT_INTERVAL:-100}
+  max_stream_load: ${EVENT_STORE_MAX_STREAM_LOAD:-1000}
+  outbox_poll_interval_ms: ${EVENT_STORE_OUTBOX_POLL_MS:-100}
+
+projection_daemon:
+  # Projection daemon settings
+  poll_interval_ms: ${PROJECTION_POLL_MS:-100}
+  batch_size: ${PROJECTION_BATCH_SIZE:-100}
+  checkpoint_interval: ${PROJECTION_CHECKPOINT_INTERVAL:-50}
+
+logging:
+  level: ${LOG_LEVEL:-INFO}
+  format: ${LOG_FORMAT:-json}
+  output: ${LOG_OUTPUT:-stdout}
+
+health:
+  enabled: ${HEALTH_ENABLED:-true}
+  port: ${HEALTH_PORT:-8080}
+
+server:
+  host: ${SERVER_HOST:-0.0.0.0}
+  port: ${SERVER_PORT:-8765}
+  workers: ${SERVER_WORKERS:-4}

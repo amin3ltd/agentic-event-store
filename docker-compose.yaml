@@ -1,0 +1,72 @@
+# =============================================================================
+# Agentic Event Store - Docker Compose
+# The Ledger - Local Development & Testing
+# =============================================================================
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: apex_ledger_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: apex_ledger
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Event Store Application
+  event-store:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: apex_ledger
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: apex_ledger
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_POOL_MIN: 2
+      DB_POOL_MAX: 10
+      LOG_LEVEL: INFO
+      HEALTH_ENABLED: "true"
+      HEALTH_PORT: 8080
+      SERVER_PORT: 8765
+    ports:
+      - "8765:8765"  # MCP Server
+      - "8080:8080"  # Health checks
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Optional: PgAdmin for database inspection
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: apex_ledger_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8081:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+  pgadmin_data:
