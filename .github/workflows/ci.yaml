@@ -87,9 +87,13 @@ jobs:
         with:
           context: .
           push: false
+          load: true
           tags: agentic-event-store:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      
+      - name: List Docker images
+        run: docker images
       
       - name: Run container smoke test
         run: |

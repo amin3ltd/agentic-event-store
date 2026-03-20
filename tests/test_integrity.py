@@ -23,8 +23,9 @@ class TestAuditChain:
             "requested_amount_usd": 100000.0,
         }
         previous_hash = "genesis"
+        timestamp = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         
-        result = AuditChain.compute_event_hash(payload, previous_hash)
+        result = AuditChain.compute_event_hash(payload, previous_hash, timestamp)
         
         # Verify it's a valid SHA-256 hash (64 hex characters)
         assert len(result) == 64
@@ -34,9 +35,10 @@ class TestAuditChain:
         """Test that the same inputs produce the same hash."""
         payload = {"key": "value", "number": 42}
         previous_hash = "test-hash"
+        timestamp = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         
-        result1 = AuditChain.compute_event_hash(payload, previous_hash)
-        result2 = AuditChain.compute_event_hash(payload, previous_hash)
+        result1 = AuditChain.compute_event_hash(payload, previous_hash, timestamp)
+        result2 = AuditChain.compute_event_hash(payload, previous_hash, timestamp)
         
         assert result1 == result2
     
@@ -45,9 +47,10 @@ class TestAuditChain:
         payload1 = {"application_id": "APP-001"}
         payload2 = {"application_id": "APP-002"}
         previous_hash = "genesis"
+        timestamp = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         
-        result1 = AuditChain.compute_event_hash(payload1, previous_hash)
-        result2 = AuditChain.compute_event_hash(payload2, previous_hash)
+        result1 = AuditChain.compute_event_hash(payload1, previous_hash, timestamp)
+        result2 = AuditChain.compute_event_hash(payload2, previous_hash, timestamp)
         
         assert result1 != result2
     
@@ -56,9 +59,10 @@ class TestAuditChain:
         payload = {"application_id": "APP-001"}
         previous1 = "hash-1"
         previous2 = "hash-2"
+        timestamp = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         
-        result1 = AuditChain.compute_event_hash(payload, previous1)
-        result2 = AuditChain.compute_event_hash(payload, previous2)
+        result1 = AuditChain.compute_event_hash(payload, previous1, timestamp)
+        result2 = AuditChain.compute_event_hash(payload, previous2, timestamp)
         
         assert result1 != result2
     
@@ -67,16 +71,20 @@ class TestAuditChain:
         events = []
         previous_hash = "genesis"
         
+        # Use fixed timestamps for deterministic testing
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        
         # Create a valid chain of 3 events
         for i in range(3):
+            timestamp = base_time.isoformat()
             payload = {"event_number": i, "data": f"event-{i}"}
-            event_hash = AuditChain.compute_event_hash(payload, previous_hash)
+            event_hash = AuditChain.compute_event_hash(payload, previous_hash, timestamp)
             
             events.append({
                 "payload": payload,
                 "metadata": {"integrity_hash": event_hash},
                 "stream_position": i + 1,
-                "recorded_at": datetime.now(timezone.utc).isoformat()
+                "recorded_at": timestamp
             })
             
             previous_hash = event_hash
@@ -90,16 +98,19 @@ class TestAuditChain:
         """Test detection of tampered events."""
         events = []
         previous_hash = "genesis"
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         
         # Create a valid chain
         for i in range(3):
+            timestamp = base_time.isoformat()
             payload = {"event_number": i, "data": f"event-{i}"}
-            event_hash = AuditChain.compute_event_hash(payload, previous_hash)
+            event_hash = AuditChain.compute_event_hash(payload, previous_hash, timestamp)
             
             events.append({
                 "payload": payload,
                 "metadata": {"integrity_hash": event_hash},
                 "stream_position": i + 1,
+                "recorded_at": timestamp
             })
             
             previous_hash = event_hash
@@ -117,23 +128,27 @@ class TestAuditChain:
         """Test detection of broken chain links."""
         events = []
         previous_hash = "genesis"
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         
         # Create first two events in chain
         for i in range(2):
+            timestamp = base_time.isoformat()
             payload = {"event_number": i, "data": f"event-{i}"}
-            event_hash = AuditChain.compute_event_hash(payload, previous_hash)
+            event_hash = AuditChain.compute_event_hash(payload, previous_hash, timestamp)
             
             events.append({
                 "payload": payload,
                 "metadata": {"integrity_hash": event_hash},
                 "stream_position": i + 1,
+                "recorded_at": timestamp
             })
             
             previous_hash = event_hash
         
         # Add third event but with wrong previous hash
+        timestamp = base_time.isoformat()
         payload = {"event_number": 2, "data": "event-2"}
-        event_hash = AuditChain.compute_event_hash(payload, "wrong-previous-hash")
+        event_hash = AuditChain.compute_event_hash(payload, "wrong-previous-hash", timestamp)
         
         events.append({
             "payload": payload,
@@ -151,14 +166,18 @@ class TestAuditChain:
         events = []
         previous_hash = "genesis"
         
+        # Use fixed timestamps for deterministic testing
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        
         for i in range(3):
+            timestamp = base_time.isoformat()
             payload = {"application_id": f"APP-00{i}"}
-            event_hash = AuditChain.compute_event_hash(payload, previous_hash)
+            event_hash = AuditChain.compute_event_hash(payload, previous_hash, timestamp)
             
             events.append({
                 "payload": payload,
                 "metadata": {"integrity_hash": event_hash},
-                "recorded_at": datetime.now(timezone.utc).isoformat()
+                "recorded_at": timestamp
             })
             
             previous_hash = event_hash
@@ -189,15 +208,17 @@ class TestRegulatoryPackage:
         """Test basic package generation."""
         events = []
         previous_hash = "genesis"
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         
         for i in range(2):
+            timestamp = base_time.isoformat()
             payload = {"application_id": "APP-001", "step": i}
-            event_hash = AuditChain.compute_event_hash(payload, previous_hash)
+            event_hash = AuditChain.compute_event_hash(payload, previous_hash, timestamp)
             
             events.append({
                 "payload": payload,
                 "metadata": {"integrity_hash": event_hash},
-                "recorded_at": datetime.now(timezone.utc).isoformat()
+                "recorded_at": timestamp
             })
             
             previous_hash = event_hash
@@ -239,13 +260,14 @@ class TestRegulatoryPackage:
         base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         
         for i in range(3):
+            timestamp = base_time.isoformat()
             payload = {"application_id": "APP-001", "step": i}
-            event_hash = AuditChain.compute_event_hash(payload, previous_hash)
+            event_hash = AuditChain.compute_event_hash(payload, previous_hash, timestamp)
             
             events.append({
                 "payload": payload,
                 "metadata": {"integrity_hash": event_hash},
-                "recorded_at": base_time.isoformat()
+                "recorded_at": timestamp
             })
             
             previous_hash = event_hash
@@ -267,14 +289,16 @@ class TestRegulatoryPackage:
         """Test that package ID follows expected format."""
         events = []
         previous_hash = "genesis"
+        base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         
+        timestamp = base_time.isoformat()
         payload = {"application_id": "APP-001"}
-        event_hash = AuditChain.compute_event_hash(payload, previous_hash)
+        event_hash = AuditChain.compute_event_hash(payload, previous_hash, timestamp)
         
         events.append({
             "payload": payload,
             "metadata": {"integrity_hash": event_hash},
-            "recorded_at": datetime.now(timezone.utc).isoformat()
+            "recorded_at": timestamp
         })
         
         package = RegulatoryPackage.generate_package(

@@ -2,10 +2,12 @@
 Event Store Implementation
 
 The core PostgreSQL-backed event store with async interface.
-Implements optimistic concurrency control and the outbox pattern.
+Implements optimistic concurrency control with row-level locking (FOR UPDATE)
+and the outbox pattern for reliable event publishing.
 """
 
 import asyncio
+import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -128,11 +130,12 @@ class EventStore:
         
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                # Get current stream version
-                current_version = await conn.fetchval(
-                    "SELECT current_version FROM event_streams WHERE stream_id = $1",
+                # Get current stream version with row lock for optimistic concurrency
+                row = await conn.fetchrow(
+                    "SELECT current_version FROM event_streams WHERE stream_id = $1 FOR UPDATE",
                     stream_id
                 )
+                current_version = row['current_version'] if row else None
                 
                 if current_version is None:
                     # New stream
@@ -142,11 +145,25 @@ class EventStore:
                     
                     # Create stream record (extract aggregate type from first event)
                     aggregate_type = self._infer_aggregate_type(events[0])
-                    await conn.execute(
-                        """INSERT INTO event_streams (stream_id, aggregate_type, current_version)
-                           VALUES ($1, $2, 0)""",
-                        stream_id, aggregate_type
-                    )
+                    try:
+                        await conn.execute(
+                            """INSERT INTO event_streams (stream_id, aggregate_type, current_version)
+                               VALUES ($1, $2, 0)""",
+                            stream_id, aggregate_type
+                        )
+                    except asyncpg.UniqueViolationError:
+                        # Stream was created by another concurrent transaction
+                        # Re-read the stream version and verify
+                        row = await conn.fetchrow(
+                            "SELECT current_version FROM event_streams WHERE stream_id = $1 FOR UPDATE",
+                            stream_id
+                        )
+                        if row is None:
+                            # Should not happen, but handle gracefully
+                            raise
+                        current_version = row['current_version']
+                        if expected_version != -1 and current_version != expected_version:
+                            raise OptimisticConcurrencyError(stream_id, expected_version, current_version)
                 else:
                     # Existing stream - check version
                     if expected_version != -1 and current_version != expected_version:
@@ -172,8 +189,8 @@ class EventStore:
                         new_version,
                         event.event_type,
                         event.event_version,
-                        event.to_payload(),
-                        {},
+                        self._serialize_payload(event.to_payload()),
+                        self._serialize_payload({}),
                         correlation_id,
                         causation_id
                     )
@@ -184,7 +201,7 @@ class EventStore:
                            VALUES ($1, $2, $3)""",
                         event_id,
                         f"stream:{stream_id}",
-                        event.to_payload()
+                        self._serialize_payload(event.to_payload())
                     )
                 
                 # Update stream version
@@ -400,8 +417,63 @@ class EventStore:
         
         return "Unknown"
     
+    def _serialize_payload(self, data: Any) -> str:
+        """
+        Serialize data to JSON string with proper type validation.
+        
+        Args:
+            data: The data to serialize
+            
+        Returns:
+            JSON string representation
+            
+        Raises:
+            TypeError: If data contains unsupported types
+        """
+        if data is None:
+            return "{}"
+        
+        # Validate that data is a basic type or dict/list of basic types
+        self._validate_serializable(data)
+        return json.dumps(data, default=str)
+    
+    def _validate_serializable(self, data: Any) -> None:
+        """
+        Recursively validate that data contains only JSON-serializable types.
+        
+        Args:
+            data: The data to validate
+            
+        Raises:
+            TypeError: If data contains non-serializable types
+        """
+        if data is None or isinstance(data, (bool, int, float, str)):
+            return
+        elif isinstance(data, (list, tuple)):
+            for item in data:
+                self._validate_serializable(item)
+        elif isinstance(data, dict):
+            for key, value in data.items():
+                if not isinstance(key, str):
+                    raise TypeError(f"Dict keys must be strings, got {type(key)}")
+                self._validate_serializable(value)
+        elif isinstance(data, (datetime, uuid.UUID)):
+            # These are handled by json.dumps default=str
+            return
+        else:
+            raise TypeError(f"Unsupported type for JSON serialization: {type(data)}")
+    
     def _row_to_stored_event(self, row: asyncpg.Record) -> StoredEvent:
         """Convert a database row to a StoredEvent."""
+        # Parse JSON payload and metadata back to dicts
+        payload = row['payload']
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        
+        metadata = row['metadata']
+        if isinstance(metadata, str):
+            metadata = json.loads(metadata)
+        
         return StoredEvent(
             event_id=row['event_id'],
             stream_id=row['stream_id'],
@@ -409,8 +481,8 @@ class EventStore:
             global_position=row['global_position'],
             event_type=row['event_type'],
             event_version=row['event_version'],
-            payload=row['payload'],
-            metadata=row['metadata'],
+            payload=payload,
+            metadata=metadata,
             recorded_at=row['recorded_at'],
             correlation_id=row['correlation_id'],
             causation_id=row['causation_id']

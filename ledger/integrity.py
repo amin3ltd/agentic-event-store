@@ -38,13 +38,21 @@ class AuditChain:
         Args:
             payload: Event payload
             previous_hash: Hash of previous event in chain
-            timestamp: Optional timestamp (defaults to now). Can be datetime or ISO string.
+            timestamp: Optional timestamp. Can be datetime, ISO string, or None.
+                       If None, uses a fixed epoch timestamp for deterministic hashing.
             
         Returns:
             Hex-encoded SHA-256 hash
         """
         if timestamp is None:
-            timestamp = datetime.now(timezone.utc)
+            # For audit chain integrity, timestamp must be explicitly provided
+            # to ensure deterministic hash computation. Use datetime.now(timezone.utc)
+            # for current time, or provide a specific timestamp for deterministic testing.
+            raise ValueError(
+                "timestamp cannot be None for audit chain hashing. "
+                "Provide an explicit timestamp (datetime.now(timezone.utc) for current time "
+                "or a specific datetime for deterministic hashing)."
+            )
         elif isinstance(timestamp, str):
             # Parse ISO format string
             timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
@@ -75,6 +83,13 @@ class AuditChain:
             # Get stored hash from metadata
             stored_hash = event.get("metadata", {}).get("integrity_hash", "")
             event_timestamp = event.get("recorded_at")
+            
+            if event_timestamp is None:
+                errors.append(
+                    f"Event {i} (position {event.get('stream_position')}): "
+                    f"missing recorded_at timestamp for hash verification"
+                )
+                continue
             
             # Compute expected hash
             payload = event.get("payload", {})

@@ -17,7 +17,7 @@ import pytest
 import uuid
 
 from ledger.event_store import EventStore, OptimisticConcurrencyError, create_event_store
-from ledger.events import ApplicationSubmitted, CreditAnalysisCompleted
+from ledger.events import ApplicationSubmitted, CreditAnalysisRequested, CreditAnalysisCompleted
 
 
 # Test configuration

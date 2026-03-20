@@ -35,7 +35,9 @@ Apex Financial Services processes 40-80 commercial loan applications per week. A
 
 - **Event Sourcing** - Events as the source of truth, not just current state
 - **CQRS** - Separate command and query models
-- **Optimistic Concurrency Control** - Version-based conflict detection
+- **Optimistic Concurrency Control** - Version-based conflict detection with row-level locking (`FOR UPDATE`)
+- **Outbox Pattern** - Reliable event publishing with transactional guarantees
+- **Cryptographic Integrity** - SHA-256 hash chain for audit trail verification
 - **Gas Town Pattern** - Agent session persistence via event replay
 
 ## Project Structure
@@ -88,10 +90,10 @@ python datagen/generate_all.py --applicants 80 --db-url postgresql://localhost/a
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 1 | Event Store Core - PostgreSQL Schema & Interface | 🔄 |
-| 2 | Domain Logic - Aggregates, Commands & Business Rules | ⏳ |
-| 3 | Projections - CQRS Read Models & Async Daemon | ⏳ |
-| 4 | Upcasting, Integrity & The Gas Town Memory Pattern | ⏳ |
+| 1 | Event Store Core - PostgreSQL Schema & Interface | ✅ |
+| 2 | Domain Logic - Aggregates, Commands & Business Rules | ✅ |
+| 3 | Projections - CQRS Read Models & Async Daemon | ✅ |
+| 4 | Upcasting, Integrity & The Gas Town Memory Pattern | ✅ |
 
 ## The Week Standard
 
