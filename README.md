@@ -95,9 +95,5 @@ python datagen/generate_all.py --applicants 80 --db-url postgresql://localhost/a
 | 3 | Projections - CQRS Read Models & Async Daemon | ✅ |
 | 4 | Upcasting, Integrity & The Gas Town Memory Pattern | ✅ |
 
-## The Week Standard
-
-By end of this week, you must be able to demonstrate:
-> "Show me the complete decision history of application ID X" — from first event to final decision, with every AI agent action, every compliance check, every human review, all causal links intact, temporal query to any point in the lifecycle, and cryptographic integrity verification.
 
 
